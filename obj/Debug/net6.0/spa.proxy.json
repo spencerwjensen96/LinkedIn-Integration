@@ -1,0 +1,8 @@
+{
+"SpaProxyServer": {
+"ServerUrl": "https://localhost:44435",
+"LaunchCommand": "npm start",
+"WorkingDirectory": "/Users/spencerjensen/Desktop/practice/linkedintest/ClientApp/",
+"MaxTimeoutInSeconds": "120"
+}
+}

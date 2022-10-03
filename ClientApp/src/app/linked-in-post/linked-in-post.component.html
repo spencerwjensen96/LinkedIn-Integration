@@ -1,0 +1,8 @@
+<h1>Post on LinkedIn!</h1>
+<textarea name="text" cols="40" rows="5"
+          [ngModel]="text"
+          (ngModelChange)="onTextChange({event : $event})"
+          placeholder="LinkedIn Message Here"></textarea>
+<br />
+<button class="btn btn-primary" (click)="onClick()">Post Certificate</button>
+
