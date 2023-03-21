@@ -1,8 +1,10 @@
-﻿using System.Text.Json;
+﻿using System.Net.Http.Headers;
+using System.Text.Json;
 using Emmersion.Http;
 using Microsoft.AspNetCore.Mvc;
 using Newtonsoft.Json.Linq;
 using HttpClient = Emmersion.Http.HttpClient;
+using HttpHeaders = Emmersion.Http.HttpHeaders;
 using HttpMethod = Emmersion.Http.HttpMethod;
 using HttpRequest = Emmersion.Http.HttpRequest;
 
@@ -59,6 +61,25 @@ public class LinkedInController : ControllerBase
         };
         return Ok();
     }
+    [HttpPost("post-text")]
+    public async Task<ActionResult> PostTextOnLinkedIn([FromQuery] string code, [FromBody] PostOnLinkedInRequest text)
+    {
+        var settings = new Settings
+        {
+            ClientId = "869u9fs4dk3owk",
+            ClientSecret = "Zynz84hIxz4IsoOn",
+            ReturnUri = "https://localhost:44435/post-on-linked-in",
+        };
+        var accessToken = await GetAccessToken(settings, code);
+        var personId = await GetPersonId(accessToken);
+        var postId = await PostSimpleText(personId, accessToken, text.Text);
+        //var postId = await PostCertificate(personId, accessToken, text.Text);
+        var post = new Post
+        {
+            PostId = postId
+        };
+        return Ok();
+    }
 
     private async Task<string?> PostCertificate(string? personId, string? accessToken, string text)
     {
@@ -87,13 +108,15 @@ public class LinkedInController : ControllerBase
         var uploadImage = new StreamHttpRequest
         {
             Url = uploadUrl,
-            Method = HttpMethod.POST
+            Method = HttpMethod.PUT
         };
         uploadImage.Headers.Add("Authorization", "Bearer " + accessToken);
-        uploadImage.Headers.Add("Content-Type", "application/octet-stream");
+        uploadImage.Headers.Add("Content-Type", "multipart/form-data");
         uploadImage.Body = certificate.FileStream;
         
-        var uploadResult = await client.ExecuteAsync(uploadImage);
+        var uploadResult = await UploadFile.UploadImageToLinkedIn(uploadUrl, accessToken, byteArray);
+        
+        //var uploadResult = await client.ExecuteAsync(uploadImage);
 
         var postRequest = new HttpRequest
         {
@@ -202,7 +225,6 @@ public class LinkedInController : ControllerBase
         };
         return result;
     }
-    
 }
 
 public class Post

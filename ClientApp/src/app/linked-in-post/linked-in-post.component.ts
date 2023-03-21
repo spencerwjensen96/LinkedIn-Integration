@@ -27,5 +27,10 @@ export class PostOnLinkedIn {
       (res) => {console.log(res)},
       (error) => console.log(error));
   }
+  onSimpleTextClick() {
+    this.http.post('https://localhost:7000/linkedin/post-text' + this.code, {text: this.text}).subscribe(
+      (res) => {console.log(res)},
+      (error) => console.log(error));
+  }
 }
 

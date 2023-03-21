@@ -1,1 +1,4 @@
 /ClientApp/.angular
+.idea
+bin/
+obj/

@@ -32,6 +32,12 @@ export class HomeComponent {
       (res) => {location.href = res.url},
       (error) => console.log(error));
   }
+
+  postTextOnLinkedIn() {
+    this.http.post<linkedInAuthResponse>('https://localhost:7000/linkedin', {}).subscribe(
+      (res) => {location.href = res.url},
+      (error) => console.log(error));
+  }
 }
 
 interface linkedInAuthResponse{
