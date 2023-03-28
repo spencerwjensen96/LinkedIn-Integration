@@ -7,8 +7,6 @@ import {HttpClient} from "@angular/common/http";
   styleUrls: ['./linked-in-post.component.scss']
 })
 
-
-
 export class PostOnLinkedIn {
   defaultText: string = "Default Text on LinkedIn Post!";
   text: string = this.defaultText;
@@ -24,7 +22,9 @@ export class PostOnLinkedIn {
 
   onClick() {
     this.http.post('https://localhost:7000/linkedin/post' + this.code, {text: this.text}).subscribe(
-      (res) => {console.log(res)},
+      (res) => {
+        console.log(res);
+        },
       (error) => console.log(error));
   }
   onSimpleTextClick() {

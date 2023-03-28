@@ -54,12 +54,13 @@ public class LinkedInController : ControllerBase
         var accessToken = await GetAccessToken(settings, code);
         var personId = await GetPersonId(accessToken);
         //var postId = await PostSimpleText(personId, accessToken, text.Text);
-        var postId = await PostCertificate(personId, accessToken, text.Text);
+        var result = await PostCertificate(personId, accessToken, text.Text);
         var post = new Post
         {
-            PostId = postId
+            PostId = result.PostId,
+            AccessToken = result.AccessToken
         };
-        return Ok();
+        return Ok(post);
     }
     [HttpPost("post-text")]
     public async Task<ActionResult> PostTextOnLinkedIn([FromQuery] string code, [FromBody] PostOnLinkedInRequest text)
@@ -81,7 +82,7 @@ public class LinkedInController : ControllerBase
         return Ok();
     }
 
-    private async Task<string?> PostCertificate(string? personId, string? accessToken, string text)
+    private async Task<CertReturnObject> PostCertificate(string? personId, string? accessToken, string text)
     {
         var url = "https://api.linkedin.com/v2/assets?action=registerUpload";
         var client = new HttpClient();
@@ -91,7 +92,8 @@ public class LinkedInController : ControllerBase
             Method = HttpMethod.POST,
             Body = @"{""registerUploadRequest"": {""recipes"": [""urn:li:digitalmediaRecipe:feedshare-image""],
             ""owner"": ""urn:li:person:" + personId + @""",""serviceRelationships"": [{""relationshipType"": ""OWNER"",
-            ""identifier"": ""urn:li:userGeneratedContent""}]}}",
+            ""identifier"": ""urn:li:userGeneratedContent""}],""supportedUploadMechanism"":[""SYNCHRONOUS_UPLOAD""
+            ]}}",
             Headers = new HttpHeaders().Add("Authorization", "Bearer " + accessToken)
         };
         var result = await client.ExecuteAsync(request);
@@ -101,22 +103,15 @@ public class LinkedInController : ControllerBase
             ["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]?
             ["uploadUrl"]?.ToString();
         var assetId = JObject.Parse(result.Body)["value"]?["asset"]?.ToString();
-
-        var certificate = GetCertificate();
-        var byteArray = streamToByteArray(certificate.FileStream);
-
-        var uploadImage = new StreamHttpRequest
-        {
-            Url = uploadUrl,
-            Method = HttpMethod.PUT
-        };
-        uploadImage.Headers.Add("Authorization", "Bearer " + accessToken);
-        uploadImage.Headers.Add("Content-Type", "multipart/form-data");
-        uploadImage.Body = certificate.FileStream;
         
-        var uploadResult = await UploadFile.UploadImageToLinkedIn(uploadUrl, accessToken, byteArray);
-        
-        //var uploadResult = await client.ExecuteAsync(uploadImage);
+        var filePath = "example.jpg";
+        var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
+        using var uploadClient = new System.Net.Http.HttpClient();
+        var uploadRequest = new HttpRequestMessage(System.Net.Http.HttpMethod.Put, uploadUrl);
+        uploadRequest.Headers.Add("Authorization", $"Bearer {accessToken}");
+        uploadRequest.Content = new ByteArrayContent(fileBytes);
+        uploadRequest.Content.Headers.ContentType = new MediaTypeHeaderValue("image/jpg");
+        var uploadResponse = await uploadClient.SendAsync(uploadRequest);
 
         var postRequest = new HttpRequest
         {
@@ -132,7 +127,7 @@ public class LinkedInController : ControllerBase
         postRequest.Headers.Add("X-Restli-Protocol-Version", "2.0.0");
         var finalResult = await client.ExecuteAsync(postRequest);
         var finalId = JObject.Parse(finalResult.Body)["id"]?.ToString();
-        return finalId;
+        return new CertReturnObject{ AccessToken = accessToken, PostId = finalId };
     }
 
     public static byte[] streamToByteArray(Stream input)
@@ -227,9 +222,16 @@ public class LinkedInController : ControllerBase
     }
 }
 
+internal class CertReturnObject
+{
+    public string PostId { get; set; }
+    public string AccessToken { get; set; }
+}
+
 public class Post
 {
     public string? PostId { get; set; }
+    public string AccessToken { get; set; }
 }
 
 public class Settings
