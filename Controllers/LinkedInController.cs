@@ -84,47 +84,74 @@ public class LinkedInController : ControllerBase
 
     private async Task<CertReturnObject> PostCertificate(string? personId, string? accessToken, string text)
     {
-        var url = "https://api.linkedin.com/v2/assets?action=registerUpload";
+        var newUrl = "https://api.linkedin.com/rest/images?action=initializeUpload";
+        var newBody = @"{""initializeUploadRequest"": {""owner"": ""urn:li:person:" + personId + @"""}}";
         var client = new HttpClient();
         var request = new HttpRequest
         {
-            Url = url,
+            Url = newUrl,
             Method = HttpMethod.POST,
-            Body = @"{""registerUploadRequest"": {""recipes"": [""urn:li:digitalmediaRecipe:feedshare-image""],
-            ""owner"": ""urn:li:person:" + personId + @""",""serviceRelationships"": [{""relationshipType"": ""OWNER"",
-            ""identifier"": ""urn:li:userGeneratedContent""}],""supportedUploadMechanism"":[""SYNCHRONOUS_UPLOAD""
-            ]}}",
-            Headers = new HttpHeaders().Add("Authorization", "Bearer " + accessToken)
+            Body = newBody,
+            Headers = new HttpHeaders()
+                .Add("Authorization", "Bearer " + accessToken)
+                .Add("X-Restli-Protocol-Version", "2.0.0")
+                .Add("LinkedIn-Version","202303")
         };
         var result = await client.ExecuteAsync(request);
         
         var uploadUrl = JObject.Parse(result.Body)["value"]?
-            ["uploadMechanism"]?
-            ["com.linkedin.digitalmedia.uploading.MediaUploadHttpRequest"]?
             ["uploadUrl"]?.ToString();
-        var assetId = JObject.Parse(result.Body)["value"]?["asset"]?.ToString();
+        var assetId = JObject.Parse(result.Body)["value"]?["image"]?.ToString();
         
         var filePath = "example.jpg";
         var fileBytes = await System.IO.File.ReadAllBytesAsync(filePath);
         using var uploadClient = new System.Net.Http.HttpClient();
         var uploadRequest = new HttpRequestMessage(System.Net.Http.HttpMethod.Put, uploadUrl);
-        uploadRequest.Headers.Add("Authorization", $"Bearer {accessToken}");
+        
+        uploadRequest.Headers
+            .Add("Authorization", $"Bearer {accessToken}");
+        uploadRequest.Headers.Add("X-Restli-Protocol-Version", "2.0.0");
+        uploadRequest.Headers.Add("LinkedIn-Version","202303");
+        
         uploadRequest.Content = new ByteArrayContent(fileBytes);
         uploadRequest.Content.Headers.ContentType = new MediaTypeHeaderValue("image/jpg");
         var uploadResponse = await uploadClient.SendAsync(uploadRequest);
 
+        var postBody = @"
+        {
+        'author': 'urn:li:person:{0}',
+        'commentary': '{1}',
+        'visibility': 'PUBLIC',
+        'distribution': {
+            'feedDistribution': 'MAIN_FEED',
+            'targetEntities': [],
+            'thirdPartyDistributionChannels': []
+        },
+        'content': {
+            'media': {
+                'title':'{2}',
+                'id': '{3}'
+            }
+        },
+        'lifecycleState': 'PUBLISHED',
+        'isReshareDisabledByAuthor': false
+    }";
+        postBody = postBody.Replace("'", "\"");
+        postBody = postBody.Replace("{0}", personId);
+        postBody = postBody.Replace("{1}", text);
+        postBody = postBody.Replace("{2}", "Emmersion Language Certificate");
+        postBody = postBody.Replace("{3}", assetId);
+        
         var postRequest = new HttpRequest
         {
             Method = HttpMethod.POST,
-            Url = "https://api.linkedin.com/v2/ugcPosts",
-            Body = @"{""author"": ""urn:li:person:" + personId + @""",""lifecycleState"": ""PUBLISHED"",""specificContent"": {
-            ""com.linkedin.ugc.ShareContent"": {""shareCommentary"": {""text"": """ + text + @"""},""shareMediaCategory"": ""IMAGE"",
-            ""media"": [{""status"": ""READY"",""description"": {""text"": ""Test Image Upload""},
-            ""media"": """ + assetId + @""",""title"": {""text"": ""This is an API test!""}}]}},""visibility"": {
-            ""com.linkedin.ugc.MemberNetworkVisibility"": ""CONNECTIONS""}}",
+            Url = "https://api.linkedin.com/rest/posts",
+            Body = postBody,
             Headers = new HttpHeaders().Add("Authorization", "Bearer " + accessToken)
         };
+        postRequest.Headers.Add("Content-Type", "application/json");
         postRequest.Headers.Add("X-Restli-Protocol-Version", "2.0.0");
+        postRequest.Headers.Add("LinkedIn-Version", "202303");
         var finalResult = await client.ExecuteAsync(postRequest);
         var finalId = JObject.Parse(finalResult.Body)["id"]?.ToString();
         return new CertReturnObject{ AccessToken = accessToken, PostId = finalId };
